@@ -1,0 +1,102 @@
+/* ===== Layout ===== */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6fa;
+}
+
+.sidebar {
+  width: 220px;
+  background: #1e1e2f;
+  color: #fff;
+  padding: 20px;
+}
+
+.sidebar h2 {
+  margin-bottom: 20px;
+}
+
+.sidebar button {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid #444;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.sidebar button:hover {
+  background: #2d2d44;
+}
+
+.content {
+  flex: 1;
+  padding: 30px;
+}
+
+/* ===== Overview Cards ===== */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.card-box {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.card-box h4 {
+  margin: 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.card-box p {
+  margin-top: 10px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+/* ===== Status Colors ===== */
+.success { color: #2ecc71; }
+.pending { color: #f39c12; }
+.failed  { color: #e74c3c; }
+
+/* ===== Table ===== */
+table {
+  width: 100%;
+  background: #fff;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+thead {
+  background: #f1f2f6;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+}
+
+tbody tr {
+  border-bottom: 1px solid #eee;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.status-success { background: #2ecc71; }
+.status-pending { background: #f39c12; }
+.status-failed  { background: #e74c3c; }
