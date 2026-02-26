@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Wallet, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type BalanceData = {
     totalCredits: number;
@@ -28,17 +28,52 @@ export default function MerchantSettlements({ environment }: { environment: "san
     const fetchData = async () => {
         setLoading(true);
         try {
-            const balanceRes = await api.get("/dashboard/balance");
-            setBalance(balanceRes.data.data);
+            // Fetch successful transactions for this environment (Credits)
+            const { data: txns, error: txError } = await supabase
+                .from("transactions")
+                .select("amount")
+                .eq("environment", environment)
+                .in("status", ["success", "completed"]);
 
-            const historyRes = await api.get("/dashboard/settlements");
-            const payload = historyRes.data?.data ?? historyRes.data;
-            const items = Array.isArray(payload?.data)
-                ? payload.data
-                : Array.isArray(payload)
-                    ? payload
-                    : [];
-            setHistory(items);
+            if (txError) throw txError;
+
+            const totalCredits = (txns || []).reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+            // Fetch settlements (Debits and Locked)
+            const { data: sets, error: setsError } = await supabase
+                .from("settlements")
+                .select("amount, status, created_at, id")
+                .eq("environment", environment)
+                .order("created_at", { ascending: false });
+
+            if (setsError) throw setsError;
+
+            let totalDebits = 0;
+            let lockedBalance = 0;
+
+            const typedSets = sets || [];
+
+            typedSets.forEach(s => {
+                const amt = Number(s.amount);
+                if (s.status === "paid" || s.status === "approved") {
+                    totalDebits += amt;
+                } else if (s.status === "pending") {
+                    lockedBalance += amt;
+                }
+            });
+
+            // Available is credits minus what has been withdrawn or is locked in pending
+            const availableBalance = totalCredits - totalDebits - lockedBalance;
+
+            setBalance({
+                totalCredits,
+                totalDebits,
+                lockedBalance,
+                availableBalance: Math.max(0, availableBalance) // Prevent negative balance
+            });
+
+            setHistory(typedSets as unknown as SettlementRequest[]);
+
         } catch (e) {
             console.error("Failed to fetch settlement data:", e);
         } finally {
@@ -66,13 +101,27 @@ export default function MerchantSettlements({ environment }: { environment: "san
 
         setRequestLoading(true);
         try {
-            await api.post("/dashboard/settlements", { amount: amountNum });
+            // Get user to associate with settlement (using mock UUID or real if auth is setup)
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const { error } = await supabase
+                .from("settlements")
+                .insert({
+                    amount: amountNum,
+                    environment: environment,
+                    status: "pending",
+                    // mock user_id if not logged in via Supabase Auth for the demo
+                    user_id: user?.id || "00000000-0000-0000-0000-000000000000"
+                });
+
+            if (error) throw error;
+
             setRequestAmount("");
             alert("Payout request submitted successfully.");
             fetchData(); // Refresh balance and history
         } catch (e: any) {
             console.error("Payout request failed:", e);
-            alert(e.response?.data?.message || "Failed to submit payout request.");
+            alert("Failed to submit payout request. Please try again.");
         } finally {
             setRequestLoading(false);
         }

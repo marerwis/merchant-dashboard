@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Eye, EyeOff, Copy, RefreshCw, AlertTriangle } from "lucide-react";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type ApiData = {
-  api_key: string;
-  api_secret: string;
+  public_key: string;
+  secret_key: string;
 };
 
 export default function ApiKeys({ environment }: { environment: "sandbox" | "live" }) {
@@ -16,8 +16,31 @@ export default function ApiKeys({ environment }: { environment: "sandbox" | "liv
   useEffect(() => {
     setData(null);
     setShowSecret(false);
-    api.get("/dashboard/api-credentials")
-      .then((res) => setData(res.data.data));
+
+    const fetchKeys = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("api_keys")
+          .select("*")
+          .eq("environment", environment)
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          setData(data as ApiData);
+        } else {
+          // Mock data if no key exists yet for the demo
+          setData({
+            public_key: `pk_${environment}_mock_key_generated`,
+            secret_key: `sk_${environment}_mock_secret_do_not_share`
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchKeys();
   }, [environment]);
 
   const copyToClipboard = (value: string) => {
@@ -36,8 +59,21 @@ export default function ApiKeys({ environment }: { environment: "sandbox" | "liv
     setLoading(true);
 
     try {
-      const res = await api.post("/dashboard/regenerate-api-secret");
-      setData(res.data.data);
+      const newSecret = "sk_" + environment + "_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      const { data: updated, error } = await supabase
+        .from("api_keys")
+        .update({ secret_key: newSecret })
+        .eq("environment", environment)
+        .select()
+        .maybeSingle();
+
+      if (updated) {
+        setData(updated as ApiData);
+      } else {
+        // Fallback for mock demo
+        setData(prev => prev ? { ...prev, secret_key: newSecret } : null);
+      }
       setShowSecret(false);
     } catch (e) {
       console.error("Failed to regenerate secret");
@@ -73,10 +109,10 @@ export default function ApiKeys({ environment }: { environment: "sandbox" | "liv
             <div className="p-6 bg-background">
               <div className="flex items-center gap-3">
                 <div className="flex-1 bg-muted/50 border border-border rounded-md px-4 py-3 font-mono text-sm text-foreground overflow-x-auto">
-                  {data.api_key}
+                  {data.public_key}
                 </div>
                 <button
-                  onClick={() => copyToClipboard(data.api_key)}
+                  onClick={() => copyToClipboard(data.public_key)}
                   className="flex shrink-0 items-center justify-center gap-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-3 text-sm font-medium transition-colors"
                 >
                   {copied ? <span className="text-emerald-500">Copied!</span> : <><Copy className="h-4 w-4" /> Copy</>}
@@ -99,7 +135,7 @@ export default function ApiKeys({ environment }: { environment: "sandbox" | "liv
             <div className="p-6 bg-background space-y-4">
               <div className="flex items-center gap-3">
                 <div className="flex-1 bg-muted/50 border border-rose-500/30 rounded-md px-4 py-3 font-mono text-sm text-foreground overflow-x-auto flex items-center justify-between">
-                  <span>{showSecret ? data.api_secret : "••••••••••••••••••••••••••••••••••••••••••••••••••"}</span>
+                  <span>{showSecret ? data.secret_key : "••••••••••••••••••••••••••••••••••••••••••••••••••"}</span>
                   <button
                     onClick={() => setShowSecret(!showSecret)}
                     className="text-muted-foreground hover:text-foreground transition-colors p-1"

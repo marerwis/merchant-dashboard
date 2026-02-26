@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, ReceiptText } from "lucide-react";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type Transaction = {
   id: number;
@@ -20,13 +20,24 @@ export default function Transactions({ environment }: { environment: "sandbox" |
 
   useEffect(() => {
     setLoading(true);
-    api.get("/dashboard/transactions").then((res) => {
-      const data = res.data.data.data;
-      setTransactions(data);
-      setFiltered(data);
-    }).finally(() => {
-      setLoading(false);
-    });
+    const fetchTransactions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("environment", environment)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setTransactions(data as Transaction[] || []);
+        setFiltered(data as Transaction[] || []);
+      } catch (err) {
+        console.error("Error fetching transactions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTransactions();
   }, [environment]);
 
   useEffect(() => {

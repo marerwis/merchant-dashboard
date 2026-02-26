@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Smartphone, CheckCircle2, Lock, ArrowLeft } from "lucide-react";
-// In a real scenario, this would import the full payload builder
-// import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 export default function BankPaymentOtp() {
   const navigate = useNavigate();
@@ -29,19 +28,21 @@ export default function BankPaymentOtp() {
 
     setLoading(true);
 
-    // MOCK API CALL - Replace with actual /api/pay call
-    // The environment header should dictate if it auto-succeeds
     try {
-      /*
-      await api.post("/pay", {
-         phone: info?.phone,
-         amount: info?.amount,
-         otp: otp
-      });
-      */
-
-      // Simulate network request
+      // Simulate network processing delay for UX
       await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // In a real flow, this would be a secure backend endpoint handling the OTP verification and ledger update
+      // For this demo, we directly insert the successful transaction to Supabase
+      const { error } = await supabase.from('transactions').insert({
+        amount: parseFloat(info!.amount || "0"),
+        phone_number: info!.phone,
+        status: "success",
+        environment: "sandbox", // Assuming sandbox for the simulator
+        gateway_response: { method: "bank_transfer", message: "Simulated payment successful" }
+      });
+
+      if (error) throw error;
 
       setSuccess(true);
       sessionStorage.removeItem("bank_payment");
@@ -51,6 +52,7 @@ export default function BankPaymentOtp() {
       }, 2000);
 
     } catch (e) {
+      console.error(e);
       alert("Payment failed. Please try again.");
     } finally {
       setLoading(false);

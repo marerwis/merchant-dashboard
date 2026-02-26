@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 import { Wallet, TrendingUp, Search, CheckCircle2, Clock, XCircle } from "lucide-react";
 
 type Overview = {
@@ -28,13 +28,42 @@ export default function Dashboard({ environment }: { environment: "sandbox" | "l
     setOverview(null);
     setTransactions([]);
 
-    api.get("/dashboard/overview").then((res) => {
-      setOverview(res.data.data);
-    });
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch real transactions for the environment directly from Supabase
+        const { data: txns, error: txError } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("environment", environment)
+          .order("created_at", { ascending: false });
 
-    api.get("/dashboard/transactions").then((res) => {
-      setTransactions(res.data.data.data);
-    });
+        if (txError) throw txError;
+
+        setTransactions((txns as Transaction[]) || []);
+
+        // Calculate Overview Metrics locally for the dashboard
+        const total_transactions = txns?.length || 0;
+        const success = txns?.filter((tx) => tx.status === "success").length || 0;
+        const pending = txns?.filter((tx) => tx.status === "pending").length || 0;
+        const failed = txns?.filter((tx) => tx.status === "failed").length || 0;
+
+        // Sum of successful transactions for available balance approximation
+        const total_amount = txns?.filter((tx) => tx.status === "success").reduce((acc, tx) => acc + Number(tx.amount), 0) || 0;
+
+        setOverview({
+          total_transactions,
+          success,
+          pending,
+          failed,
+          total_amount,
+        });
+
+      } catch (err) {
+        console.error("Error fetching dashboard from Supabase:", err);
+      }
+    };
+
+    fetchDashboardData();
   }, [environment]);
 
   return (
@@ -146,13 +175,13 @@ export default function Dashboard({ environment }: { environment: "sandbox" | "l
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-bold mb-1 ${tx.status === 'success' ? 'text-emerald-500' :
-                      tx.status === 'failed' ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'
+                    tx.status === 'failed' ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'
                     }`}>
                     {tx.status === 'success' ? '+' : ''} LYD {tx.amount}
                   </p>
                   <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${tx.status === 'success' ? 'bg-emerald-500/10 text-emerald-500' :
-                      tx.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
-                        'bg-rose-500/10 text-rose-500'
+                    tx.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-rose-500/10 text-rose-500'
                     }`}>
                     {tx.status}
                   </span>

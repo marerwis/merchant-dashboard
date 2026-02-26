@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, Clock, ShieldAlert, ArrowLeft, ArrowRight, Wallet } from "lucide-react";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type SettlementRequest = {
     id: number;
@@ -27,22 +27,44 @@ export default function AdminSettlements() {
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            // In a real app, this should be /admin/settlements, assuming the API token has superadmin privileges
-            const res = await api.get("/admin/settlements", {
-                params: { status, page },
-            });
+            let query = supabase
+                .from("settlements")
+                .select(`
+                    id, 
+                    amount, 
+                    status, 
+                    environment, 
+                    created_at, 
+                    user_id
+                `, { count: "exact" });
 
-            const payload = res.data?.data ?? res.data;
-            const items = Array.isArray(payload?.data)
-                ? payload.data
-                : Array.isArray(payload)
-                    ? payload
-                    : [];
+            if (status) {
+                query = query.eq("status", status);
+            }
 
-            setRequests(items);
-            setLastPage(payload?.last_page ?? 1);
+            const limit = 10;
+            const from = (page - 1) * limit;
+            const to = from + limit - 1;
+
+            const { data, count, error } = await query
+                .order("created_at", { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+
+            // Map standard auth users (mock for demo since we don't have a profiles table)
+            const mappedData = (data || []).map(req => ({
+                ...req,
+                user: {
+                    name: "Merchant User",
+                    email: req.user_id ? `${req.user_id.substring(0, 8)}@merchant.test` : "unknown@demo.test"
+                }
+            }));
+
+            setRequests(mappedData as any);
+            setLastPage(count ? Math.ceil(count / limit) : 1);
         } catch (e) {
-            console.error("Failed to load settlement requests");
+            console.error("Failed to load settlement requests", e);
         } finally {
             setLoading(false);
         }
@@ -56,15 +78,23 @@ export default function AdminSettlements() {
         fetchRequests();
     }, [status, page]);
 
-    const handleAction = async (id: number, action: "approve" | "reject", reason?: string) => {
+    const handleAction = async (id: number, action: "approved" | "rejected", reason?: string) => {
         if (!confirm(`Are you sure you want to ${action} this settlement?`)) return;
 
         setActionLoading(id);
         try {
-            await api.post(`/admin/settlements/${id}/${action}`, { reason });
+            const { error } = await supabase
+                .from("settlements")
+                .update({
+                    status: action,
+                    note: reason || null
+                })
+                .eq("id", id);
+
+            if (error) throw error;
             fetchRequests(); // refresh list
         } catch (e) {
-            console.error(`Failed to ${action} settlement`);
+            console.error(`Failed to ${action} settlement`, e);
             alert(`Failed to ${action} settlement`);
         } finally {
             setActionLoading(null);
@@ -160,7 +190,7 @@ export default function AdminSettlements() {
                                                 {req.status === "pending" && (
                                                     <div className="flex justify-end gap-2">
                                                         <button
-                                                            onClick={() => handleAction(req.id, "approve")}
+                                                            onClick={() => handleAction(req.id, "approved")}
                                                             disabled={actionLoading === req.id}
                                                             className="rounded-md bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
                                                         >
@@ -169,7 +199,7 @@ export default function AdminSettlements() {
                                                         <button
                                                             onClick={() => {
                                                                 const reason = prompt("Reason for rejection:");
-                                                                if (reason !== null) handleAction(req.id, "reject", reason);
+                                                                if (reason !== null) handleAction(req.id, "rejected", reason);
                                                             }}
                                                             disabled={actionLoading === req.id}
                                                             className="rounded-md bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"

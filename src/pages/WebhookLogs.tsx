@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { History, Filter, ArrowLeft, ArrowRight, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type WebhookLog = {
   id: number;
@@ -24,22 +24,31 @@ export default function WebhookLogs({ environment }: { environment: "sandbox" | 
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/dashboard/webhook-logs", {
-        params: { event, status, page },
-      });
+      let query = supabase
+        .from("webhook_logs")
+        .select("*", { count: "exact" });
 
-      const payload = res.data?.data ?? res.data;
-      const items = Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload)
-          ? payload
-          : [];
+      if (event) {
+        query = query.eq("event", event);
+      }
+      if (status) {
+        query = query.eq("status", status);
+      }
 
-      setLogs(items);
-      setLastPage(payload?.last_page ?? 1);
+      const limit = 10;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
 
+      const { data, count, error } = await query
+        .range(from, to)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setLogs((data as WebhookLog[]) || []);
+      setLastPage(count ? Math.ceil(count / limit) : 1);
     } catch (e) {
-      console.error("Failed to load webhook logs");
+      console.error("Failed to load webhook logs", e);
       setLogs([]);
       setLastPage(1);
     } finally {

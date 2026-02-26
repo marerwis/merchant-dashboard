@@ -1,97 +1,136 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
-import { Wallet, LogIn, Sparkles } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, CreditCard } from "lucide-react";
+import { supabase } from "../api/supabase";
 
-type Props = {
-  setIsAuth: (value: boolean) => void;
-};
-
-export default function Login({ setIsAuth }: Props) {
+export default function Login({ _setIsAuth }: { _setIsAuth?: (auth: boolean) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  // Still keeping the prop for backward compatibility matching App.tsx signature until we completely drop standard state
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    if (!email || !password) return;
+
+    setError("");
+    setLoading(true);
+
     try {
-      const res = await api.post("/login", { email, password });
-      localStorage.setItem("token", res.data.data.token);
-      setIsAuth(true);
-      navigate("/dashboard");
-    } catch {
-      alert("Invalid credentials. If backend is not running, use Demo Mode.");
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        throw authError; // Caught below
+      }
+
+      // The AuthContext event listener will automatically catch the session and redirect
+      // We do not need to redirect manually here.
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Invalid credentials. Please try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleDemo = () => {
-    localStorage.setItem("token", "demo-token-12345");
-    localStorage.setItem("environment", "sandbox");
-    setIsAuth(true);
-    navigate("/dashboard");
+  const loadDemoUser = () => {
+    setEmail("demo@gateway.ly");
+    setPassword("demo123");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark p-4">
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl p-8 shadow-xl">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mb-4">
-            <Wallet className="w-8 h-8" />
+    <div className="flex min-h-screen items-center justify-center relative overflow-hidden bg-background">
+      {/* Background Decor */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[100px]" />
+      </div>
+
+      <div className="w-full max-w-md p-8 relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6 shadow-sm border border-primary/20">
+            <CreditCard className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Merchant Hub</h2>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to manage your payments</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground mb-2">Merchant Portal</h1>
+          <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+            Manage your payments, analyze revenue, and scale your business.
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">Email Address</label>
-            <input
-              type="email"
-              placeholder="merchant@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:outline-none text-foreground"
-              required
-            />
+        {/* Auth Form */}
+        <div className="bg-card/50 backdrop-blur-xl border border-border shadow-2xl rounded-2xl p-8 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+
+          <form onSubmit={handleLogin} className="space-y-5 relative">
+            {error && (
+              <div className="p-3 text-sm font-medium text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg animate-in slide-in-from-top-2">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground ml-1">Email <span className="text-primary">*</span></label>
+              <div className="relative group">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="email"
+                  required
+                  placeholder="name@company.com"
+                  className="w-full pl-10 pr-4 py-3 bg-background/50 border border-input rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/50"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground ml-1">Password <span className="text-primary">*</span></label>
+              <div className="relative group">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-4 py-3 bg-background/50 border border-input rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/50"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/25 disabled:opacity-70 group"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Authenticating...
+                </>
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Test Notice */}
+          <div className="mt-8 text-center border-t border-border/50 pt-6">
+            <p className="text-xs text-muted-foreground mb-3">View the demo UI instantly</p>
+            <button
+              onClick={loadDemoUser}
+              className="text-sm text-primary hover:text-primary/80 font-medium transition-colors border border-primary/20 rounded-full px-4 py-1.5 hover:bg-primary/5"
+            >
+              Load Demo Account
+            </button>
           </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">Password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:outline-none text-foreground"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-primary text-primary-foreground font-bold rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
-          >
-            <LogIn className="w-4 h-4" />
-            {isLoading ? "Signing in..." : "Sign In"}
-          </button>
-        </form>
-
-        <div className="mt-8 pt-6 border-t border-border">
-          <button
-            onClick={handleDemo}
-            className="w-full bg-slate-100 dark:bg-slate-800 text-foreground font-bold rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-border"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-500" />
-            View Stitch UI Demo
-          </button>
-          <p className="text-xs text-center text-muted-foreground mt-3">
-            Click here to bypass local backend login and instantly preview the new UI.
-          </p>
         </div>
       </div>
     </div>

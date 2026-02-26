@@ -1,23 +1,21 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useAuth } from "./api/AuthContext";
 
 import Login from "./pages/Login";
 import DashboardLayout from "./layout/DashboardLayout";
 
 export default function App() {
-  const [isAuth, setIsAuth] = useState<boolean>(
-    !!localStorage.getItem("token")
-  );
+  const { session, isLoading } = useAuth();
 
-  // 🔄 مزامنة حالة التوكن
-  useEffect(() => {
-    const syncAuth = () => {
-      setIsAuth(!!localStorage.getItem("token"));
-    };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-    window.addEventListener("storage", syncAuth);
-    return () => window.removeEventListener("storage", syncAuth);
-  }, []);
+  const isAuth = !!session;
 
   return (
     <BrowserRouter>
@@ -29,12 +27,14 @@ export default function App() {
             isAuth ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Login setIsAuth={setIsAuth} />
+              // Temporarily pass a no-op function to setIsAuth until Login is refactored 
+              // to use Supabase signIn natively.
+              <Login _setIsAuth={() => { }} />
             )
           }
         />
 
-        {/* 📊 Dashboard (كل الصفحات الداخلية هنا) */}
+        {/* 📊 Dashboard */}
         <Route
           path="/dashboard/*"
           element={
@@ -46,7 +46,7 @@ export default function App() {
           }
         />
 
-        {/* 🛑 أي مسار غير معروف */}
+        {/* 🛑 Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

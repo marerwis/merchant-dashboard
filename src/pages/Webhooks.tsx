@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Webhook as WebhookIcon, Plus, Trash2, Power, History } from "lucide-react";
 import { Link } from "react-router-dom";
-import api from "../api/axios";
+import { supabase } from "../api/supabase";
 
 type Webhook = {
   id: number;
@@ -26,11 +26,13 @@ export default function Webhooks({ environment }: { environment: "sandbox" | "li
 
   const fetchWebhooks = async () => {
     try {
-      const res = await api.get("/dashboard/webhooks");
-      let data: Webhook[] = [];
-      if (Array.isArray(res.data)) data = res.data;
-      else if (Array.isArray(res.data?.data)) data = res.data.data;
-      setWebhooks(data);
+      const { data, error } = await supabase
+        .from("webhooks")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setWebhooks((data as Webhook[]) || []);
     } catch (e) {
       console.error("Failed to load webhooks", e);
       setWebhooks([]);
@@ -46,11 +48,19 @@ export default function Webhooks({ environment }: { environment: "sandbox" | "li
     if (!event || !url) return;
     setLoading(true);
     try {
-      const res = await api.post("/dashboard/webhooks", { event, url });
-      const newWebhook: Webhook = res.data?.data ?? res.data ?? null;
-      if (newWebhook) {
-        setWebhooks((prev) => Array.isArray(prev) ? [...prev, newWebhook] : [newWebhook]);
-        setLastSecret(newWebhook.secret ?? null);
+      const newSecret = "whsec_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      const { data, error } = await supabase
+        .from("webhooks")
+        .insert({ event, url, secret: newSecret })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setWebhooks((prev) => [data as Webhook, ...prev]);
+        setLastSecret(newSecret);
       }
       setEvent("");
       setUrl("");
@@ -62,13 +72,24 @@ export default function Webhooks({ environment }: { environment: "sandbox" | "li
   };
 
   const toggleWebhook = async (id: number) => {
-    await api.patch(`/dashboard/webhooks/${id}/toggle`);
+    const webhook = webhooks.find(w => w.id === id);
+    if (!webhook) return;
+
+    await supabase
+      .from("webhooks")
+      .update({ is_active: !webhook.is_active })
+      .eq("id", id);
+
     fetchWebhooks();
   };
 
   const deleteWebhook = async (id: number) => {
     if (!confirm("Are you sure you want to permanently delete this webhook?")) return;
-    await api.delete(`/dashboard/webhooks/${id}`);
+    await supabase
+      .from("webhooks")
+      .delete()
+      .eq("id", id);
+
     fetchWebhooks();
   };
 
