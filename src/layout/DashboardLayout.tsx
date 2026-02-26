@@ -101,17 +101,30 @@ export default function DashboardLayout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6 lg:px-8">
-          <h1 className="text-xl font-semibold">Merchant Portal</h1>
+        <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background/80 px-6 lg:px-8 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-sm font-bold leading-tight">Merchant Hub</h1>
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 rounded-full ${environment === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
+                <span className={`text-[10px] font-semibold uppercase tracking-wider ${environment === 'live' ? 'text-emerald-500' : 'text-orange-500'}`}>
+                  {environment} Mode
+                </span>
+              </div>
+            </div>
+          </div>
 
           <div className="flex items-center gap-4">
             {/* Environment Switcher */}
-            <div className="flex items-center rounded-full border border-border bg-muted/50 p-1">
+            <div className="flex items-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-1">
               <button
                 onClick={() => setEnvironment("sandbox")}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all",
-                  environment === "sandbox" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
+                  "rounded-full px-4 py-1.5 text-xs font-bold transition-all",
+                  environment === "sandbox" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-slate-500 dark:text-slate-400 hover:text-foreground"
                 )}
               >
                 Sandbox
@@ -119,13 +132,17 @@ export default function DashboardLayout() {
               <button
                 onClick={() => setEnvironment("live")}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all",
-                  environment === "live" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  "rounded-full px-4 py-1.5 text-xs font-bold transition-all",
+                  environment === "live" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-slate-500 dark:text-slate-400 hover:text-foreground"
                 )}
               >
                 Live
               </button>
             </div>
+
+            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+              <ShieldAlert className="h-5 w-5" />
+            </button>
           </div>
         </header>
 
